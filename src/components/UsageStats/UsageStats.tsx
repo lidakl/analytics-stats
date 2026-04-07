@@ -33,7 +33,6 @@ export const UsageStats = () => {
     return <div className={styles.loading}>Анализируем использование...</div>;
   if (!data) return <div>Ошибка загрузки данных</div>;
 
-  // Данные для прогресс-бара (сегодняшний день — последний в массиве)
   const today = data.days[data.days.length - 1];
   const progressPercent = Math.min(
     (today.committed / data.dailyLimit) * 100,
@@ -55,7 +54,7 @@ export const UsageStats = () => {
         </div>
         <div className={styles.card}>
           <span className={styles.label}>Стрейк (дней)</span>
-          <div className={styles.value}>{data.summary.currentStreak} 🔥</div>
+          <div className={styles.value}>{data.summary.currentStreak}</div>
         </div>
       </div>
 

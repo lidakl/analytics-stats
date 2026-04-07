@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Usage Analytics Dashboard
 
-## Getting Started
+Система отслеживания лимитов и визуализации использования AI-ассистента.
 
-First, run the development server:
+## Инструкция по запуску
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Для работы приложения требуется **Node.js 18+**.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Установка зависимостей:**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+   ```bash
+   npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```
 
-## Learn More
+2. **Настройка базы данных (SQLite):**
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   npx prisma migrate dev --name init
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Наполнение тестовыми данными:**
+   Скрипт создаст тестового пользователя и сгенерирует историю событий за последние 7 дней.
 
-## Deploy on Vercel
+   ```bash
+   npx tsx prisma/seed.ts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Запуск приложения:**
+   ```bash
+   npm run dev
+   ```
+
+Приложение будет доступно по адресу: http://localhost:3000
+
+## Описание допущений
+
+При реализации проекта были приняты следующие архитектурные решения:
+
+1. **Механизм кэширования:**
+   Предполагается, что исторические данные за прошлые дни не меняются. Поэтому используется таблица daily_usage_cache.
+   Эндпоинт статистики работает по гибридной схеме: берет агрегаты из кэша для прошлых периодов и суммирует их с "сырыми" событиями за текущий день из таблицы events. Это обеспечивает точность real-time данных при высокой скорости ответа.
+
+2. **Статусы и Время жизни (TTL):**
+   События в статусе reserved считаются активными только в течение 15 минут с момента создания (согласно требованию). Это условие жестко прописано в SQL-запросе к базе.
+   Utilization (процент использования) рассчитывается только на основе committed событий относительно лимита тарифа.
+
+3. **Идентификация пользователя:**
+   Так как полноценная авторизация выходила за рамки задания, в API захардкожен userId: 1. Однако сервис спроектирован так, чтобы легко принимать ID из сессии (например, NextAuth).
+
+4. **Формат дат:**
+   Все расчеты ведутся в формате YYYY-MM-DD (date_key), что упрощает группировку и работу с индексами в БД без необходимости сложной конвертации часовых поясов на уровне агрегации.
+
+## Описание возможных улучшений
+
+1. **Декомпозиция UI-слоя:**
+   - Вынесла бы графики, карточки сводки и прогресс-бар в отдельные изолированные компоненты.
+
+2. **Интернационализация:**
+   - Вынесла бы все статические строки в словари (например, используя `i18next`), чтобы приложение поддерживало мультиязычность.
+
+3. **Тестирование и стабильность:**
+   - Покрыла бы бизнес-логику сервиса `UsageService` Unit-тестами (Jest/Vitest), особенно расчет стрейков и логику фильтрации устаревших резерваций.
+   - Добавила бы интеграционные тесты для API-роутов.
+
+4. **Архитектурное разделение:**
+   - Для еще большей независимости от ORM вынесла бы запросы к базе из сервиса в отдельные репозитории.
+
+5. **Оптимизация кэширования:**
+   - Реализовала бы автоматический инвалидатор кэша или обновление через фоновые задачи (Cron), чтобы минимизировать нагрузку на таблицу событий при каждом запросе.
